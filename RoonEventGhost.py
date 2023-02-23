@@ -1,3 +1,4 @@
+import logging
 import sys
 # path to roonapi folder
 sys.path.append('\\pyRoon\\pyRoonLib\\roonapi')
@@ -13,8 +14,8 @@ dataFolder = None
 dataFile = None
 inDebugger = getattr(sys, 'gettrace', None)
 appinfo = {
-    "extension_id": "sonnabend.roon.egvolume",
-    "display_name": "EG Volume",
+    "extension_id": "sonnabend.roon.egvolume:2",
+    "display_name": "EG Controller",
     "display_version": "1.0.0",
     "publisher": "sonnabend",
     "email": "",
@@ -24,6 +25,7 @@ roon = None
 
 def main():
     try:
+        LOGGER.setLevel(level=logging.DEBUG)
         global roon
         global settings
         loadSettings()
@@ -41,6 +43,7 @@ def main():
         # roon.register_state_callback(state_change_callback)
         hostname = socket.gethostname()
         roon.register_volume_control("1", hostname, volume_control_callback, 0, "incremental")
+        roon.register_source_control("2", hostname + "_source_control", source_control_callback, False, "selected")
         while True:
             time.sleep(0.1)
             pass
@@ -117,6 +120,10 @@ def state_change_callback(event, changed_ids):
         zone = roon.zones[zone_id]
         LOGGER.info("zone_id:%s zone_info: %s" % (zone_id, zone))
 
+def source_control_callback(control_key, event, value):
+    global roon
+    LOGGER.info("\n-----")
+    LOGGER.info("source_control_callback control_key: %s event: %s value: %s" % (control_key, event, value))
 def volume_control_callback(control_key, event, value):
     global roon
     LOGGER.info("\n-----")

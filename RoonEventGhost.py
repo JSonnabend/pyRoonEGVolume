@@ -43,7 +43,8 @@ def main():
         # roon.register_state_callback(state_change_callback)
         hostname = socket.gethostname()
         roon.register_volume_control("1", hostname, volume_control_callback, 0, "incremental")
-        roon.register_source_control("2", hostname + "_source_control", source_control_callback, False, "selected")
+        roon.register_source_control("2", "source 1", source_control_callback, True, "selected")
+        roon.register_source_control("3","source 2", source_control_callback, True, "selected")
         while True:
             time.sleep(0.1)
             pass
@@ -120,10 +121,10 @@ def state_change_callback(event, changed_ids):
         zone = roon.zones[zone_id]
         LOGGER.info("zone_id:%s zone_info: %s" % (zone_id, zone))
 
-def source_control_callback(control_key, event, value):
+def source_control_callback(control_key, event, data):
     global roon
     LOGGER.info("\n-----")
-    LOGGER.info("source_control_callback control_key: %s event: %s value: %s" % (control_key, event, value))
+    LOGGER.info("source_control_callback control_key: %s event: %s data: %s" % (control_key, event, data))
 def volume_control_callback(control_key, event, value):
     global roon
     LOGGER.info("\n-----")

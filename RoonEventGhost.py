@@ -43,12 +43,16 @@ def main():
         # roon.register_state_callback(state_change_callback)
         hostname = socket.gethostname()
         roon.register_volume_control("1", hostname, volume_control_callback, 0, "incremental")
-        roon.register_source_control("2", "source 1", source_control_callback, True, "selected")
-        roon.register_source_control("3","source 2", source_control_callback, True, "selected")
+        buttons = []
+        try:
+            buttons = settings["buttons"]
+            for button in buttons:
+                roon.register_source_control(button["id"], button["label"], source_control_callback, True, button["initial_state"])
+        except:
+            pass
         while True:
             time.sleep(0.1)
             pass
-
     finally:
         #finally, save settings
         if not (settings is None):
@@ -114,41 +118,40 @@ def authorize():
 def state_change_callback(event, changed_ids):
     global roon
     """Call when something changes in roon."""
-    LOGGER.info("\n-----")
-    LOGGER.info("state_change_callback event:%s changed_ids: %s" % (event, changed_ids))
-    LOGGER.info(" ")
+    LOGGER.info("state_change_callback event:%s changed_ids: %s\n" % (event, changed_ids))
     for zone_id in changed_ids:
         zone = roon.zones[zone_id]
         LOGGER.info("zone_id:%s zone_info: %s" % (zone_id, zone))
 
 def source_control_callback(control_key, event, data):
     global roon
-    LOGGER.info("\n-----")
-    LOGGER.info("source_control_callback control_key: %s event: %s data: %s" % (control_key, event, data))
+    LOGGER.info("source_control_callback control_key: %s event: %s data: %s\n" % (control_key, event, data))
+    roon.update_source_control(control_key, event)
+
 def volume_control_callback(control_key, event, value):
     global roon
-    LOGGER.info("\n-----")
-    LOGGER.info("volume_control_callback control_key: %s event: %s value: %s" % (control_key, event, value))
+    LOGGER.info("volume_control_callback control_key: %s event: %s value: %s\n" % (control_key, event, value))
     command = None
     param = None
-    if value == 1:
-        command = settings["command_volume_up"]["command"]
-        param = settings["command_volume_up"]["param"]
-    elif value == -1:
-        command = settings["command_volume_down"]["command"]
-        param = settings["command_volume_down"]["param"]
-    elif event == "set_mute":
-        command = settings["command_volume_mute"]["command"]
-        param = settings["command_volume_mute"]["param"]
-    if not command == None:
-        command = '"%s" %s' % (command,param)
-        LOGGER.info("running command %s" % (command))
-        try:
+    try:
+        #get command and param from settings
+        if value == 1:
+            command = settings["command_volume_up"]["command"]
+            param = settings["command_volume_up"]["param"]
+        elif value == -1:
+            command = settings["command_volume_down"]["command"]
+            param = settings["command_volume_down"]["param"]
+        elif event == "set_mute":
+            command = settings["command_volume_mute"]["command"]
+            param = settings["command_volume_mute"]["param"]
+        #format command and param and pass to subprocess.run
+        if not command == None:
+            command = '"%s" %s' % (command,param)
+            LOGGER.info("running command %s\n" % (command))
             subprocess.run(shlex.split(command))
-        except:
-            pass
+    except:
+        LOGGER.info("Error running command/params. Check config for proper entries.")
     roon.update_volume_control(control_key, 0, False)
-
 
 def loadSettings():
     global dataFolder

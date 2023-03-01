@@ -7,7 +7,22 @@ import time, os
 import json
 import socket
 import subprocess, shlex
-from constants import LOGGER
+# from constants import LOGGER
+import logging
+from logging.handlers import RotatingFileHandler
+
+logger = logging.getLogger('RoonEndpointAssistant')
+# configure file logging
+file_handler = RotatingFileHandler('RoonEndpointAssistant.log', maxBytes=1e5, backupCount=2)
+file_handler.setLevel(logging.DEBUG)
+formatter = logging.Formatter(fmt='%(asctime)s %(levelname)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
+# configure console logging
+stream_handler = logging.StreamHandler()
+stream_handler.setLevel(logging.DEBUG)
+stream_handler.setFormatter(formatter)
+logger.addHandler(stream_handler)
 
 settings = None
 dataFolder = None
@@ -25,7 +40,7 @@ roon = None
 
 def main():
     try:
-        LOGGER.setLevel(level=logging.DEBUG)
+        logger.setLevel(level=logging.DEBUG)
         global roon
         global settings
         loadSettings()
@@ -59,15 +74,15 @@ def main():
             saveSettings()
 
 def connect(core_id, token):
-    LOGGER.info("in connect\n  core_id: %s\n  token: %s" % (core_id,token))
+    logger.info("in connect\n  core_id: %s\n  token: %s" % (core_id,token))
     global appinfo
     try:
         discover = discovery.RoonDiscovery(core_id, dataFolder)
-        LOGGER.info("discover object: %s" % discover)
+        logger.info("discover object: %s" % discover)
         server = discover.first()
-        LOGGER.info("server object: %s:%s" % (server[0], server[1]))
+        logger.info("server object: %s:%s" % (server[0], server[1]))
         roon = roonapi.RoonApi(appinfo, token, server[0], server[1], True)
-        LOGGER.info("roon object: %s" % roon)
+        logger.info("roon object: %s" % roon)
         return roon
     except:
         return None
@@ -75,42 +90,42 @@ def connect(core_id, token):
         discover.stop()
 
 def authorize():
-    LOGGER.info("authorizing")
+    logger.info("authorizing")
     global appinfo
     global settings
 
-    LOGGER.info("discovering servers")
+    logger.info("discovering servers")
     discover = discovery.RoonDiscovery(None)
     servers = discover.all()
-    LOGGER.info("discover: %s\nservers: %s" % (discover, servers))
+    logger.info("discover: %s\nservers: %s" % (discover, servers))
 
-    LOGGER.info("Shutdown discovery")
+    logger.info("Shutdown discovery")
     discover.stop()
 
-    LOGGER.info("Found the following servers")
-    LOGGER.info(servers)
+    logger.info("Found the following servers")
+    logger.info(servers)
     apis = [roonapi.RoonApi(appinfo, None, server[0], server[1], False) for server in servers]
 
     auth_api = []
     while len(auth_api) == 0:
-        LOGGER.info("Waiting for authorisation")
+        logger.info("Waiting for authorisation")
         time.sleep(1)
         auth_api = [api for api in apis if api.token is not None]
 
     api = auth_api[0]
 
-    LOGGER.info("Got authorisation")
-    LOGGER.info("   host ip: " + api.host)
-    LOGGER.info("   core name: " + api.core_name)
-    LOGGER.info("   core id: " + api.core_id)
-    LOGGER.info("   token: " + api.token)
+    logger.info("Got authorisation")
+    logger.info("   host ip: " + api.host)
+    logger.info("   core name: " + api.core_name)
+    logger.info("   core id: " + api.core_id)
+    logger.info("   token: " + api.token)
     # This is what we need to reconnect
     settings["core_id"] = api.core_id
     settings["token"] = api.token
 
-    LOGGER.info("leaving authorize with settings: %s" % settings)
+    logger.info("leaving authorize with settings: %s" % settings)
 
-    LOGGER.info("Shutdown apis")
+    logger.info("Shutdown apis")
     for api in apis:
         api.stop()
 
@@ -118,19 +133,39 @@ def authorize():
 def state_change_callback(event, changed_ids):
     global roon
     """Call when something changes in roon."""
-    LOGGER.info("state_change_callback event:%s changed_ids: %s\n" % (event, changed_ids))
+    logger.info("state_change_callback event:%s changed_ids: %s\n" % (event, changed_ids))
     for zone_id in changed_ids:
         zone = roon.zones[zone_id]
-        LOGGER.info("zone_id:%s zone_info: %s" % (zone_id, zone))
+        logger.info("zone_id:%s zone_info: %s" % (zone_id, zone))
 
 def source_control_callback(control_key, event, data):
     global roon
-    LOGGER.info("source_control_callback control_key: %s event: %s data: %s\n" % (control_key, event, data))
-    roon.update_source_control(control_key, event)
+    logger.info("source_control_callback control_key: %s event: %s data: %s\n" % (control_key, event, data))
+    command = None
+    param = None
+    new_state = event
+    try:
+        #get data from settings
+        button = next((button for button in settings["buttons"] if button["id"] == control_key), None)
+        if event == "standby":
+            command = button["command_off"]
+            param = button["param_off"]
+            new_state = "selected"
+        else:
+            command = button["command_on"]
+            param = button["param_on"]
+            new_state = "standby"
+        if not command == None:
+            command = '"%s" %s' % (command,param)
+            logger.info("running command %s\n" % (command))
+            subprocess.run(shlex.split(command))
+    except:
+        logger.info("Error running command/params. Check config for proper entries.")
+    roon.update_source_control(control_key, new_state)
 
 def volume_control_callback(control_key, event, value):
     global roon
-    LOGGER.info("volume_control_callback control_key: %s event: %s value: %s\n" % (control_key, event, value))
+    logger.info("volume_control_callback control_key: %s event: %s value: %s\n" % (control_key, event, value))
     command = None
     param = None
     try:
@@ -147,24 +182,24 @@ def volume_control_callback(control_key, event, value):
         #format command and param and pass to subprocess.run
         if not command == None:
             command = '"%s" %s' % (command,param)
-            LOGGER.info("running command %s\n" % (command))
+            logger.info("running command %s\n" % (command))
             subprocess.run(shlex.split(command))
     except:
-        LOGGER.info("Error running command/params. Check config for proper entries.")
+        logger.info("Error running command/params. Check config for proper entries.")
     roon.update_volume_control(control_key, 0, False)
 
 def loadSettings():
     global dataFolder
     global dataFile
     global settings
-    LOGGER.info("running from %s" % __file__)
-    # LOGGER.info(os.environ)
+    logger.info("running from %s" % __file__)
+    # logger.info(os.environ)
     if ("_" in __file__): # running in temp directory, so not from PyCharm
         dataFolder = os.path.join(os.getenv('APPDATA'), 'pyRoonEGVolume')  #os.path.abspath(os.path.dirname(__file__))
     else:
         dataFolder = os.path.dirname(__file__)
     dataFile = os.path.join(dataFolder , 'settings.dat')
-    LOGGER.info("using dataFile: %s" % dataFile)
+    logger.info("using dataFile: %s" % dataFile)
     if not os.path.isfile(dataFile):
         f = open(dataFile, 'a').close()
     try:

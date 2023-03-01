@@ -11,38 +11,43 @@ import subprocess, shlex
 import logging
 from logging.handlers import RotatingFileHandler
 
-logger = logging.getLogger('RoonEndpointAssistant')
-# configure file logging
-file_handler = RotatingFileHandler('RoonEndpointAssistant.log', maxBytes=1e5, backupCount=2)
-file_handler.setLevel(logging.DEBUG)
-formatter = logging.Formatter(fmt='%(asctime)s %(levelname)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
-# configure console logging
-stream_handler = logging.StreamHandler()
-stream_handler.setLevel(logging.DEBUG)
-stream_handler.setFormatter(formatter)
-logger.addHandler(stream_handler)
-
-settings = None
-dataFolder = None
-dataFile = None
-inDebugger = getattr(sys, 'gettrace', None)
-appinfo = {
-    "extension_id": "sonnabend.roon.egvolume:2",
-    "display_name": "EG Controller",
-    "display_version": "1.0.0",
-    "publisher": "sonnabend",
-    "email": "",
-}
-roon = None
-
-
 def main():
+    global roon
+    roon = None
+    global logger
+    logger = logging.getLogger('RoonEndpointAssistant')
+    global settings
+    settings = None
+    global dataFolder
+    dataFolder = None
+    global dataFile
+    dataFile = None
+    global inDebugger
+    inDebugger = getattr(sys, 'gettrace', None)
+    global appinfo
+    appinfo = {
+        "extension_id": "sonnabend.roon.egvolume:2",
+        "display_name": "EG Controller",
+        "display_version": "1.0.0",
+        "publisher": "sonnabend",
+        "email": "",
+    }
+    # configure file logging
+    file_handler = RotatingFileHandler('RoonEndpointAssistant.log', maxBytes=1e5, backupCount=2)
+    file_handler.setLevel(logging.DEBUG)
+    formatter = logging.Formatter(fmt='%(asctime)s %(levelname)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+    # configure console logging
+    stream_handler = logging.StreamHandler()
+    stream_handler.setLevel(logging.DEBUG)
+    stream_handler.setFormatter(formatter)
+    logger.addHandler(stream_handler)
+
     try:
         logger.setLevel(level=logging.DEBUG)
-        global roon
-        global settings
+        # global roon
+        # global settings
         loadSettings()
         # authorize if necessary
         try:

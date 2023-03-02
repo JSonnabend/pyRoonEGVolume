@@ -27,8 +27,8 @@ def main():
     global appinfo
     appinfo = {
         "extension_id": "sonnabend.roon.egvolume:2",
-        "display_name": "EG Controller",
-        "display_version": "1.0.0",
+        "display_name": "Endpoint Assistant",
+        "display_version": "0.1.0",
         "publisher": "sonnabend",
         "email": "",
     }
@@ -62,7 +62,9 @@ def main():
         # subscribe to status notifications
         # roon.register_state_callback(state_change_callback)
         hostname = socket.gethostname()
+        # register volume controller service
         roon.register_volume_control("1", hostname, volume_control_callback, 0, "incremental")
+        # register "convenience buttons" service
         buttons = []
         try:
             buttons = settings["buttons"]
@@ -200,7 +202,7 @@ def loadSettings():
     logger.info("running from %s" % __file__)
     # logger.info(os.environ)
     if ("_" in __file__): # running in temp directory, so not from PyCharm
-        dataFolder = os.path.join(os.getenv('APPDATA'), 'pyRoonEGVolume')  #os.path.abspath(os.path.dirname(__file__))
+        dataFolder = os.path.join(os.getenv('APPDATA'), 'pyRoonEndpointAssistant')  #os.path.abspath(os.path.dirname(__file__))
     else:
         dataFolder = os.path.dirname(__file__)
     dataFile = os.path.join(dataFolder , 'settings.dat')
